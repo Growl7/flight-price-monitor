@@ -2,7 +2,7 @@ name: 机票价格监控
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 * * * *'  # 每小时运行一次
   workflow_dispatch:
 
 jobs:
