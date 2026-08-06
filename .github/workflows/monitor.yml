@@ -21,13 +21,8 @@ jobs:
       - name: 安装依赖
         run: pip install requests jinja2
       
-      - name: 运行抓取脚本
-        env:
-          AVIATIONSTACK_API_KEY: ${{ secrets.AVIATIONSTACK_API_KEY }}
-          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python scraper_aviationstack.py
+      - name: 运行Trip.com价格监控
+        run: python scraper_trip_github.py
       
       - name: 发送邮件报告
         env:

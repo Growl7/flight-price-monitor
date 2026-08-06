@@ -68,9 +68,9 @@ class EmailNotifier:
                 .flight-info {{ margin: 5px 0; }}
                 .footer {{ text-align: center; padding: 20px; color: #666; font-size: 0.9em; }}
                 .no-data {{ color: #999; font-style: italic; }}
-                .time-analysis {{ background: linear-gradient(135deg, #00b09b, #96c93d); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }}
-                .time-analysis h2 {{ color: white; border-bottom-color: rgba(255,255,255,0.5); }}
-                .time-stat {{ background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; margin: 10px 0; }}
+                .flight-card {{ background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }}
+                .flight-card h2 {{ color: white; border-bottom-color: rgba(255,255,255,0.5); }}
+                .flight-detail {{ background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; margin: 10px 0; }}
             </style>
         </head>
         <body>
@@ -82,46 +82,31 @@ class EmailNotifier:
                 </div>
                 
                 <div class="content">
+                    <div class="flight-card">
+                        <h2>航班信息</h2>
+                        <div class="flight-detail">
+                            <strong>航班号:</strong> CA707
+                        </div>
+                        <div class="flight-detail">
+                            <strong>航空公司:</strong> Air China (中国国航)
+                        </div>
+                        <div class="flight-detail">
+                            <strong>航线:</strong> 杭州 (HGH) → 河内 (HAN)
+                        </div>
+                        <div class="flight-detail">
+                            <strong>飞行时长:</strong> 约3小时25分钟
+                        </div>
+                        <div class="flight-detail">
+                            <strong>航班类型:</strong> 直飞
+                        </div>
+                    </div>
+                    
                     <div class="summary">
-                        <h2>监控摘要</h2>
+                        <h2>监控日期及价格</h2>
                         <p>监控日期范围: {MONITOR_DATES[0]} 至 {MONITOR_DATES[-1]}</p>
                         <p>监控天数: {len(summaries)} 天</p>
                     </div>
         """
-        
-        # 添加最佳购买时间分析
-        if best_time_data:
-            html += f"""
-                    <div class="time-analysis">
-                        <h2>最佳购买时间分析</h2>
-                        <div class="time-stat">
-                            <strong>最佳购买时间段:</strong> {best_time_data['best_period']}
-                        </div>
-                        <div class="time-stat">
-                            <strong>最佳购买小时:</strong> {f"{best_time_data['best_hour']:02d}:00" if best_time_data['best_hour'] is not None else 'N/A'}
-                        </div>
-                        <div class="time-stat">
-                            <strong>该时段最低价:</strong> ¥{best_time_data['best_min_price']}
-                        </div>
-                    </div>
-            """
-            
-            # 添加各时间段统计
-            if best_time_data.get('period_stats'):
-                html += '<div class="summary"><h2>各时间段价格统计</h2>'
-                html += '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">'
-                html += '<tr style="background: #667eea; color: white;"><th style="padding: 10px; text-align: left;">时间段</th><th style="padding: 10px; text-align: left;">最低价</th><th style="padding: 10px; text-align: left;">平均价</th></tr>'
-                
-                for period, stats in best_time_data['period_stats'].items():
-                    html += f"""
-                    <tr style="border-bottom: 1px solid #eee;">
-                        <td style="padding: 10px;"><strong>{period}</strong></td>
-                        <td style="padding: 10px;" class="price-highlight">¥{stats['min_price']}</td>
-                        <td style="padding: 10px;">¥{stats['avg_price']:.2f}</td>
-                    </tr>
-                    """
-                
-                html += '</table></div>'
         
         # 添加每个日期的详细信息
         if summaries:
@@ -140,23 +125,22 @@ class EmailNotifier:
                 
                 html += f"""
                 <div class="date-card">
-                    <div class="date-header">{flight_date}</div>
+                    <div class="date-header">📅 {flight_date}</div>
+                    <div class="flight-info">
+                        <strong>航班:</strong> CA707 (Air China 中国国航)
+                    </div>
                     <div class="flight-info">
                         <strong>最低价格:</strong> <span class="price-highlight">¥{min_price}</span>
+                    </div>
+                    <div class="flight-info">
+                        <strong>飞行时长:</strong> 约3小时25分钟 (直飞)
                     </div>
                 """
                 
                 if min_price_time:
                     html += f"""
                     <div class="flight-info">
-                        <strong>出现时间:</strong> {min_price_time}
-                    </div>
-                    """
-                
-                if flight_number:
-                    html += f"""
-                    <div class="flight-info">
-                        <strong>航班号:</strong> {flight_number}
+                        <strong>价格更新时间:</strong> {min_price_time}
                     </div>
                     """
                 
@@ -171,6 +155,7 @@ class EmailNotifier:
                     <h2>整体最低价</h2>
                     <p>在所有监控日期中，最低价格为 <span class="price-highlight">¥{min_price_overall}</span></p>
                     <p>出现日期: {min_price_date}</p>
+                    <p>航班: CA707 (Air China 中国国航)</p>
                 </div>
                 """
         else:

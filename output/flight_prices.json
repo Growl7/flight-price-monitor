@@ -1,0 +1,93 @@
+{
+  "timestamp": "2026-08-06T16:20:16.964948",
+  "exchange_rate": 7.25,
+  "flight_info": {
+    "flight_no": "CA707",
+    "airline": "Air China (中国国航)",
+    "route": "杭州 (HGH) → 河内 (HAN)",
+    "duration": "约3小时25分钟",
+    "type": "直飞"
+  },
+  "results": [
+    {
+      "status": "success",
+      "date": "2026-10-30",
+      "flight": {
+        "flight_no": "CA707",
+        "airline": "Air China (中国国航)",
+        "departure_city": "杭州 (HGH)",
+        "arrival_city": "河内 (HAN)",
+        "price_usd": 164,
+        "price_cny": 1189.0,
+        "duration": "3小时25分钟",
+        "duration_raw": "PT3H25M",
+        "is_nonstop": true
+      },
+      "exchange_rate": 7.25
+    },
+    {
+      "status": "success",
+      "date": "2026-11-06",
+      "flight": {
+        "flight_no": "CA707",
+        "airline": "Air China (中国国航)",
+        "departure_city": "杭州 (HGH)",
+        "arrival_city": "河内 (HAN)",
+        "price_usd": 164,
+        "price_cny": 1189.0,
+        "duration": "3小时25分钟",
+        "duration_raw": "PT3H25M",
+        "is_nonstop": true
+      },
+      "exchange_rate": 7.25
+    },
+    {
+      "status": "success",
+      "date": "2026-11-13",
+      "flight": {
+        "flight_no": "CA707",
+        "airline": "Air China (中国国航)",
+        "departure_city": "杭州 (HGH)",
+        "arrival_city": "河内 (HAN)",
+        "price_usd": 164,
+        "price_cny": 1189.0,
+        "duration": "3小时25分钟",
+        "duration_raw": "PT3H25M",
+        "is_nonstop": true
+      },
+      "exchange_rate": 7.25
+    },
+    {
+      "status": "success",
+      "date": "2026-11-20",
+      "flight": {
+        "flight_no": "CA707",
+        "airline": "Air China (中国国航)",
+        "departure_city": "杭州 (HGH)",
+        "arrival_city": "河内 (HAN)",
+        "price_usd": 164,
+        "price_cny": 1189.0,
+        "duration": "3小时25分钟",
+        "duration_raw": "PT3H25M",
+        "is_nonstop": true
+      },
+      "exchange_rate": 7.25
+    },
+    {
+      "status": "success",
+      "date": "2026-11-27",
+      "flight": {
+        "flight_no": "CA707",
+        "airline": "Air China (中国国航)",
+        "departure_city": "杭州 (HGH)",
+        "arrival_city": "河内 (HAN)",
+        "price_usd": 164,
+        "price_cny": 1189.0,
+        "duration": "3小时25分钟",
+        "duration_raw": "PT3H25M",
+        "is_nonstop": true
+      },
+      "exchange_rate": 7.25
+    }
+  ]
+}
