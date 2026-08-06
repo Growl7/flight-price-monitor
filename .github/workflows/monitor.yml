@@ -2,8 +2,7 @@ name: 机票价格监控
 
 on:
   schedule:
-    # 每天运行4次（每6小时一次）
-    - cron: '0 */6 * * *'  # 北京时间 0:00, 6:00, 12:00, 18:00
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 jobs:
@@ -20,7 +19,7 @@ jobs:
           python-version: '3.10'
       
       - name: 安装依赖
-        run: pip requests
+        run: pip install requests
       
       - name: 运行抓取脚本
         env:
