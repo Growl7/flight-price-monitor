@@ -1,0 +1,35 @@
+{
+  "chart_data": {
+    "dates": [],
+    "prices": [],
+    "min_price_times": []
+  },
+  "detailed_data": [
+    {
+      "date": "2026-10-30",
+      "history": [],
+      "min_price_info": null
+    },
+    {
+      "date": "2026-11-06",
+      "history": [],
+      "min_price_info": null
+    },
+    {
+      "date": "2026-11-13",
+      "history": [],
+      "min_price_info": null
+    },
+    {
+      "date": "2026-11-20",
+      "history": [],
+      "min_price_info": null
+    },
+    {
+      "date": "2026-11-27",
+      "history": [],
+      "min_price_info": null
+    }
+  ],
+  "generated_time": "2026-08-06 09:23:07"
+}

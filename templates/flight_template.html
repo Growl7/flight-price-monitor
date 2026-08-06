@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .chart-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        .chart-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+            text-align: center;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .summary-card h3 {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        
+        .summary-card .value {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        .summary-card .label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .detailed-section {
+            margin-top: 30px;
+        }
+        
+        .section-title {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #4facfe;
+        }
+        
+        .date-card {
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        
+        .date-header {
+            background: #4facfe;
+            color: white;
+            padding: 15px 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .date-content {
+            padding: 20px;
+        }
+        
+        .flight-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .flight-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .flight-table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .flight-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .price-highlight {
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .min-price-badge {
+            background: #e74c3c;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+        
+        .footer {
+            background: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.2em;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .chart-wrapper {
+                height: 300px;
+            }
+            
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{{ title }}</h1>
+            <p>{{ departure_city }} → {{ arrival_city }} | 监控日期范围: {{ monitor_dates[0] }} 至 {{ monitor_dates[-1] }}</p>
+        </div>
+        
+        <div class="content">
+            <!-- 价格趋势图 -->
+            <div class="chart-container">
+                <h2 class="chart-title">每日最低价格趋势</h2>
+                <div class="chart-wrapper">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- 时间段分析 -->
+            {% if time_analysis.best_time_data %}
+            <div class="chart-container">
+                <h2 class="chart-title">最佳购买时间分析</h2>
+                
+                <!-- 最佳时间摘要 -->
+                <div class="summary-cards">
+                    <div class="summary-card" style="background: linear-gradient(135deg, #00b09b, #96c93d);">
+                        <h3>最佳购买时间段</h3>
+                        <div class="value">{{ time_analysis.best_time_data.best_period }}</div>
+                        <div class="label">最低价: ¥{{ time_analysis.best_time_data.best_min_price }}</div>
+                    </div>
+                    <div class="summary-card" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+                        <h3>最佳购买小时</h3>
+                        <div class="value">{{ "%02d:00"|format(time_analysis.best_time_data.best_hour) if time_analysis.best_time_data.best_hour is not none else 'N/A' }}</div>
+                        <div class="label">该时段最低价</div>
+                    </div>
+                </div>
+                
+                <!-- 按小时价格趋势图 -->
+                {% if time_analysis.hourly_trend.hours %}
+                <div class="chart-wrapper" style="height: 350px; margin-top: 20px;">
+                    <canvas id="hourlyChart"></canvas>
+                </div>
+                {% endif %}
+                
+                <!-- 各时间段统计 -->
+                {% if time_analysis.best_time_data.period_stats %}
+                <div style="margin-top: 30px;">
+                    <h3 style="color: #333; margin-bottom: 15px;">各时间段价格统计</h3>
+                    <table class="flight-table">
+                        <thead>
+                            <tr>
+                                <th>时间段</th>
+                                <th>最低价</th>
+                                <th>平均价</th>
+                                <th>数据点数</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for period, stats in time_analysis.best_time_data.period_stats.items() %}
+                            <tr>
+                                <td><strong>{{ period }}</strong></td>
+                                <td class="price-highlight">¥{{ stats.min_price }}</td>
+                                <td>¥{{ stats.avg_price|round(2) }}</td>
+                                <td>{{ stats.data_points }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- 摘要卡片 -->
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <h3>监控天数</h3>
+                    <div class="value">{{ chart_data.dates|length }}</div>
+                    <div class="label">天</div>
+                </div>
+                <div class="summary-card">
+                    <h3>最低价格</h3>
+                    <div class="value">¥{{ chart_data.prices|min }}</div>
+                    <div class="label">出现日期: {{ chart_data.dates[chart_data.prices.index(chart_data.prices|min)] if chart_data.prices else 'N/A' }}</div>
+                </div>
+                <div class="summary-card">
+                    <h3>平均价格</h3>
+                    <div class="value">¥{{ (chart_data.prices|sum / chart_data.prices|length)|round(2) if chart_data.prices else 0 }}</div>
+                    <div class="label">所有日期平均</div>
+                </div>
+                <div class="summary-card">
+                    <h3>最高价格</h3>
+                    <div class="value">¥{{ chart_data.prices|max }}</div>
+                    <div class="label">出现日期: {{ chart_data.dates[chart_data.prices.index(chart_data.prices|max)] if chart_data.prices else 'N/A' }}</div>
+                </div>
+            </div>
+            
+            <!-- 详细数据 -->
+            <div class="detailed-section">
+                <h2 class="section-title">详细航班数据</h2>
+                
+                {% for date_data in detailed_data %}
+                <div class="date-card">
+                    <div class="date-header">
+                        {{ date_data.date }}
+                        {% if date_data.min_price_info %}
+                        <span class="min-price-badge">最低价: ¥{{ date_data.min_price_info.min_price }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="date-content">
+                        {% if date_data.history %}
+                        <table class="flight-table">
+                            <thead>
+                                <tr>
+                                    <th>起飞时间</th>
+                                    <th>航空公司</th>
+                                    <th>航班号</th>
+                                    <th>价格</th>
+                                    <th>抓取时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for flight in date_data.history %}
+                                <tr>
+                                    <td>{{ flight[0] }}</td>
+                                    <td>{{ flight[1] }}</td>
+                                    <td>{{ flight[2] }}</td>
+                                    <td class="price-highlight">
+                                        ¥{{ flight[3] }}
+                                        {% if date_data.min_price_info and flight[3] == date_data.min_price_info.min_price %}
+                                        <span class="min-price-badge">最低</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ flight[4] }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="no-data">暂无航班数据</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>数据更新时间: {{ generated_time }}</p>
+            <p>杭州直飞河内机票价格监控系统</p>
+        </div>
+    </div>
+    
+    <script>
+        // 价格趋势图
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        const chartData = {
+            labels: {{ chart_data.dates|tojson }},
+            datasets: [{
+                label: '每日最低价格 (¥)',
+                data: {{ chart_data.prices|tojson }},
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }]
+        };
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: chartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: 14
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const index = context.dataIndex;
+                                const price = context.parsed.y;
+                                const time = chartData.min_price_times[index];
+                                let label = `价格: ¥${price}`;
+                                if (time) {
+                                    label += ` (出现时间: ${time})`;
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: '价格 (¥)',
+                            font: {
+                                size: 14
+                            }
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: '日期',
+                            font: {
+                                size: 14
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 小时价格趋势图
+        {% if time_analysis.hourly_trend.hours %}
+        const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+        const hourlyData = {
+            labels: {{ time_analysis.hourly_trend.hours|tojson }},
+            datasets: [
+                {
+                    label: '最低价格 (¥)',
+                    data: {{ time_analysis.hourly_trend.min_prices|tojson }},
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderWidth: 3,
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: '平均价格 (¥)',
+                    data: {{ time_analysis.hourly_trend.avg_prices|tojson }},
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderWidth: 3,
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }
+            ]
+        };
+        
+        new Chart(hourlyCtx, {
+            type: 'line',
+            data: hourlyData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: {
+                                size: 14
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.dataset.label || '';
+                                const value = context.parsed.y;
+                                return `${label}: ¥${value}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: '价格 (¥)',
+                            font: {
+                                size: 14
+                            }
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: '时间',
+                            font: {
+                                size: 14
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
+    </script>
+</body>
+</html>
