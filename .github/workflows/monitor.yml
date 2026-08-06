@@ -19,7 +19,7 @@ jobs:
           python-version: '3.10'
       
       - name: 安装依赖
-        run: pip install requests
+        run: pip install requests jinja2
       
       - name: 运行抓取脚本
         env:
@@ -28,6 +28,13 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         run: python scraper_aviationstack.py
+      
+      - name: 发送邮件报告
+        env:
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+        run: python send_email_report.py
       
       - name: 上传报告
         uses: actions/upload-artifact@v4
