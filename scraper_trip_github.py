@@ -29,8 +29,8 @@ def parse_duration(duration_str):
             return f"{minutes}分钟"
     return duration_str
 
-def fetch_ca707_price(depart_date=None):
-    """获取CA707航班价格"""
+def fetch_ca707_price(depart_date=None, max_retries=3):
+    """获取CA707航班价格（带重试机制）"""
     base_url = "https://www.trip.com/flights/hangzhou-to-hanoi/airfares-HGH-HAN/"
     
     headers = {
@@ -49,71 +49,79 @@ def fetch_ca707_price(depart_date=None):
         "sec-ch-ua-platform": '"Windows"'
     }
     
-    try:
-        # 构建URL
-        url = base_url
-        if depart_date:
-            url = f"{base_url}?dcity=HGH&acity=HAN&departure={depart_date}"
-        
-        # 发送请求
-        session = requests.Session()
-        response = session.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
-        
-        html = response.text
-        
-        # 查找CA707航班信息
-        # 查找 CA707 及其附近的价格
-        ca707_pos = html.find('CA707')
-        if ca707_pos == -1:
+    import time
+    
+    for attempt in range(max_retries):
+        try:
+            # 构建URL
+            url = base_url
+            if depart_date:
+                url = f"{base_url}?dcity=HGH&acity=HAN&departure={depart_date}"
+            
+            # 发送请求
+            session = requests.Session()
+            response = session.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            html = response.text
+            
+            # 查找CA707航班信息
+            ca707_pos = html.find('CA707')
+            if ca707_pos == -1:
+                return {
+                    "status": "error",
+                    "error": "未找到CA707航班",
+                    "date": depart_date or datetime.now().strftime("%Y-%m-%d")
+                }
+            
+            # 向前搜索最近的价格
+            search_area = html[max(0, ca707_pos-500):ca707_pos]
+            price_matches = re.findall(r'"price":"(\d+)"', search_area)
+            
+            if not price_matches:
+                return {
+                    "status": "error",
+                    "error": "未找到CA707航班价格",
+                    "date": depart_date or datetime.now().strftime("%Y-%m-%d")
+                }
+            
+            price_usd = int(price_matches[-1])
+            price_cny = price_usd * USD_TO_CNY
+            
+            # 查找飞行时长
+            duration_match = re.search(r'"estimatedFlightDuration":"([^"]+)"', html[ca707_pos:ca707_pos+500])
+            duration_raw = duration_match.group(1) if duration_match else "PT3H25M"
+            duration = parse_duration(duration_raw)
+            
             return {
-                "status": "error",
-                "error": "未找到CA707航班",
-                "date": depart_date or datetime.now().strftime("%Y-%m-%d")
+                "status": "success",
+                "date": depart_date or datetime.now().strftime("%Y-%m-%d"),
+                "flight": {
+                    "flight_no": "CA707",
+                    "airline": "Air China (中国国航)",
+                    "departure_city": "杭州 (HGH)",
+                    "arrival_city": "河内 (HAN)",
+                    "price_usd": price_usd,
+                    "price_cny": price_cny,
+                    "duration": duration,
+                    "duration_raw": duration_raw,
+                    "is_nonstop": True
+                },
+                "exchange_rate": USD_TO_CNY
             }
-        
-        # 向前搜索最近的价格
-        search_area = html[max(0, ca707_pos-500):ca707_pos]
-        price_matches = re.findall(r'"price":"(\d+)"', search_area)
-        
-        if not price_matches:
-            return {
-                "status": "error",
-                "error": "未找到CA707航班价格",
-                "date": depart_date or datetime.now().strftime("%Y-%m-%d")
-            }
-        
-        price_usd = int(price_matches[-1])
-        price_cny = price_usd * USD_TO_CNY
-        
-        # 查找飞行时长
-        duration_match = re.search(r'"estimatedFlightDuration":"([^"]+)"', html[ca707_pos:ca707_pos+500])
-        duration_raw = duration_match.group(1) if duration_match else "PT3H25M"
-        duration = parse_duration(duration_raw)
-        
-        return {
-            "status": "success",
-            "date": depart_date or datetime.now().strftime("%Y-%m-%d"),
-            "flight": {
-                "flight_no": "CA707",
-                "airline": "Air China (中国国航)",
-                "departure_city": "杭州 (HGH)",
-                "arrival_city": "河内 (HAN)",
-                "price_usd": price_usd,
-                "price_cny": price_cny,
-                "duration": duration,
-                "duration_raw": duration_raw,
-                "is_nonstop": True
-            },
-            "exchange_rate": USD_TO_CNY
-        }
-        
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e),
-            "date": depart_date or datetime.now().strftime("%Y-%m-%d")
-        }
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                # 等待后重试
+                wait_time = (attempt + 1) * 5  # 5, 10, 15秒
+                print(f"   请求失败，{wait_time}秒后重试...")
+                time.sleep(wait_time)
+            else:
+                return {
+                    "status": "error",
+                    "error": str(e),
+                    "date": depart_date or datetime.now().strftime("%Y-%m-%d")
+                }
 
 def main():
     """主函数"""
@@ -131,9 +139,11 @@ def main():
     print("=" * 70)
     
     all_results = []
-    for date in target_dates:
+    for i, date in enumerate(target_dates):
         print(f"\n获取 {date} 的CA707航班价格...")
-        result = fetch_ca707_price(date)
+        
+        # 每次只尝试一次，失败就记录失败
+        result = fetch_ca707_price(date, max_retries=2)
         all_results.append(result)
         
         if result["status"] == "success":
@@ -142,7 +152,16 @@ def main():
             print(f"   价格: ¥{flight['price_cny']:.0f} (${flight['price_usd']} USD)")
             print(f"   时长: {flight['duration']}")
         else:
-            print(f"   错误: {result.get('error')}")
+            print(f"   查询失败: {result.get('error')}")
+        
+        # 每次请求后等待更长时间，避免触发限制
+        if i < len(target_dates) - 1:
+            import time
+            import random
+            # 随机等待15-25秒，避免被识别为机器人
+            wait_time = random.randint(15, 25)
+            print(f"   等待{wait_time}秒后继续...")
+            time.sleep(wait_time)
     
     # 保存结果
     output = {

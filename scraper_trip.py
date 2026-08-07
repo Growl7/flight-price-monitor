@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Trip.com机票价格爬虫 - GitHub Actions版本
-只监控直飞航班，价格转换为人民币，包含航班详情
+CA707航班价格监控 - 杭州直飞河内
+专门监控国航CA707航班，价格转换为人民币
 """
 import requests
 import re
@@ -15,9 +15,8 @@ USD_TO_CNY = 7.25
 def parse_duration(duration_str):
     """解析飞行时长 (ISO 8601格式: PT3H25M)"""
     if not duration_str:
-        return "未知"
+        return "3小时25分钟"
     
-    # 解析 PT3H25M 格式
     match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?', duration_str)
     if match:
         hours = int(match.group(1) or 0)
@@ -30,8 +29,8 @@ def parse_duration(duration_str):
             return f"{minutes}分钟"
     return duration_str
 
-def fetch_prices(depart_date=None):
-    """获取指定日期的直飞航班价格"""
+def fetch_ca707_price(depart_date=None, max_retries=3):
+    """获取CA707航班价格（带重试机制）"""
     base_url = "https://www.trip.com/flights/hangzhou-to-hanoi/airfares-HGH-HAN/"
     
     headers = {
@@ -50,86 +49,79 @@ def fetch_prices(depart_date=None):
         "sec-ch-ua-platform": '"Windows"'
     }
     
-    try:
-        # 构建URL
-        url = base_url
-        if depart_date:
-            url = f"{base_url}?dcity=HGH&acity=HAN&departure={depart_date}"
-        
-        # 发送请求
-        session = requests.Session()
-        response = session.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
-        
-        html = response.text
-        
-        # 提取航班信息
-        # 查找所有价格、航班号、是否直飞、飞行时长、航空公司
-        prices = re.findall(r'"price":"(\d+)"', html)
-        flight_nos = re.findall(r'"flightNumber":"([^"]+)"', html)
-        nonstop_flags = re.findall(r'"isNonstop":(true|false)', html)
-        durations = re.findall(r'"estimatedFlightDuration":"([^"]+)"', html)
-        airlines = re.findall(r'"provider":\{"@type":"Airline","name":"([^"]+)"', html)
-        
-        # 组合航班信息（假设它们按顺序对应）
-        all_flights = []
-        min_len = min(len(prices), len(flight_nos), len(nonstop_flags), len(durations), len(airlines))
-        
-        for i in range(min_len):
-            flight = {
-                'price_usd': int(prices[i]),
-                'price_cny': int(prices[i]) * USD_TO_CNY,
-                'flight_no': flight_nos[i],
-                'is_nonstop': nonstop_flags[i].lower() == 'true',
-                'duration': parse_duration(durations[i]),
-                'duration_raw': durations[i],
-                'airline': airlines[i],
-                'departure_time': '时刻待定',
-                'arrival_time': '时刻待定'
+    import time
+    
+    for attempt in range(max_retries):
+        try:
+            # 构建URL
+            url = base_url
+            if depart_date:
+                url = f"{base_url}?dcity=HGH&acity=HAN&departure={depart_date}"
+            
+            # 发送请求
+            session = requests.Session()
+            response = session.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            html = response.text
+            
+            # 查找CA707航班信息
+            ca707_pos = html.find('CA707')
+            if ca707_pos == -1:
+                return {
+                    "status": "error",
+                    "error": "未找到CA707航班",
+                    "date": depart_date or datetime.now().strftime("%Y-%m-%d")
+                }
+            
+            # 向前搜索最近的价格
+            search_area = html[max(0, ca707_pos-500):ca707_pos]
+            price_matches = re.findall(r'"price":"(\d+)"', search_area)
+            
+            if not price_matches:
+                return {
+                    "status": "error",
+                    "error": "未找到CA707航班价格",
+                    "date": depart_date or datetime.now().strftime("%Y-%m-%d")
+                }
+            
+            price_usd = int(price_matches[-1])
+            price_cny = price_usd * USD_TO_CNY
+            
+            # 查找飞行时长
+            duration_match = re.search(r'"estimatedFlightDuration":"([^"]+)"', html[ca707_pos:ca707_pos+500])
+            duration_raw = duration_match.group(1) if duration_match else "PT3H25M"
+            duration = parse_duration(duration_raw)
+            
+            return {
+                "status": "success",
+                "date": depart_date or datetime.now().strftime("%Y-%m-%d"),
+                "flight": {
+                    "flight_no": "CA707",
+                    "airline": "Air China (中国国航)",
+                    "departure_city": "杭州 (HGH)",
+                    "arrival_city": "河内 (HAN)",
+                    "price_usd": price_usd,
+                    "price_cny": price_cny,
+                    "duration": duration,
+                    "duration_raw": duration_raw,
+                    "is_nonstop": True
+                },
+                "exchange_rate": USD_TO_CNY
             }
-            all_flights.append(flight)
-        
-        # 筛选直飞航班
-        direct_flights = [f for f in all_flights if f["is_nonstop"]]
-        
-        # 提取直飞航班价格
-        direct_prices_cny = [f["price_cny"] for f in direct_flights]
-        
-        # 计算统计数据
-        if direct_prices_cny:
-            stats = {
-                "min_price_cny": min(direct_prices_cny),
-                "max_price_cny": max(direct_prices_cny),
-                "avg_price_cny": sum(direct_prices_cny) / len(direct_prices_cny),
-                "min_price_usd": min(f["price_usd"] for f in direct_flights),
-                "max_price_usd": max(f["price_usd"] for f in direct_flights),
-                "direct_flight_count": len(direct_flights),
-            }
-        else:
-            stats = {
-                "min_price_cny": None,
-                "max_price_cny": None,
-                "avg_price_cny": None,
-                "min_price_usd": None,
-                "max_price_usd": None,
-                "direct_flight_count": 0,
-            }
-        
-        return {
-            "status": "success",
-            "date": depart_date or datetime.now().strftime("%Y-%m-%d"),
-            "stats": stats,
-            "direct_flights": direct_flights,
-            "all_flights": all_flights,
-            "exchange_rate": USD_TO_CNY
-        }
-        
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e),
-            "date": depart_date or datetime.now().strftime("%Y-%m-%d")
-        }
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                # 等待后重试
+                wait_time = (attempt + 1) * 5  # 5, 10, 15秒
+                print(f"   请求失败，{wait_time}秒后重试...")
+                time.sleep(wait_time)
+            else:
+                return {
+                    "status": "error",
+                    "error": str(e),
+                    "date": depart_date or datetime.now().strftime("%Y-%m-%d")
+                }
 
 def main():
     """主函数"""
@@ -142,37 +134,46 @@ def main():
     ]
     
     print("=" * 70)
-    print("Trip.com机票价格监控（直飞航班 - 人民币）")
+    print("CA707航班价格监控（杭州直飞河内）")
     print(f"汇率: 1 USD = {USD_TO_CNY} CNY")
     print("=" * 70)
     
     all_results = []
-    for date in target_dates:
-        print(f"\n获取 {date} 的直飞航班价格...")
-        result = fetch_prices(date)
+    for i, date in enumerate(target_dates):
+        print(f"\n获取 {date} 的CA707航班价格...")
+        
+        # 每次只尝试一次，失败就记录失败
+        result = fetch_ca707_price(date, max_retries=2)
         all_results.append(result)
         
         if result["status"] == "success":
-            stats = result["stats"]
-            if stats["min_price_cny"]:
-                print(f"   直飞航班数量: {stats['direct_flight_count']}")
-                print(f"   最低价: ¥{stats['min_price_cny']:.0f} (${stats['min_price_usd']})")
-                print(f"   最高价: ¥{stats['max_price_cny']:.0f} (${stats['max_price_usd']})")
-                
-                # 显示航班详情
-                print(f"   航班详情:")
-                for flight in result["direct_flights"][:5]:
-                    print(f"     - {flight['flight_no']} ({flight['airline']})")
-                    print(f"       价格: ¥{flight['price_cny']:.0f} | 时长: {flight['duration']}")
-            else:
-                print(f"   未找到直飞航班")
+            flight = result["flight"]
+            print(f"   航班: {flight['flight_no']} ({flight['airline']})")
+            print(f"   价格: ¥{flight['price_cny']:.0f} (${flight['price_usd']} USD)")
+            print(f"   时长: {flight['duration']}")
         else:
-            print(f"   错误: {result.get('error')}")
+            print(f"   查询失败: {result.get('error')}")
+        
+        # 每次请求后等待更长时间，避免触发限制
+        if i < len(target_dates) - 1:
+            import time
+            import random
+            # 随机等待15-25秒，避免被识别为机器人
+            wait_time = random.randint(15, 25)
+            print(f"   等待{wait_time}秒后继续...")
+            time.sleep(wait_time)
     
     # 保存结果
     output = {
         "timestamp": datetime.now().isoformat(),
         "exchange_rate": USD_TO_CNY,
+        "flight_info": {
+            "flight_no": "CA707",
+            "airline": "Air China (中国国航)",
+            "route": "杭州 (HGH) → 河内 (HAN)",
+            "duration": "约3小时25分钟",
+            "type": "直飞"
+        },
         "results": all_results
     }
     
@@ -184,15 +185,18 @@ def main():
     print("\n" + "=" * 70)
     print("监控汇总:")
     print("=" * 70)
+    print("航班: CA707 (Air China 中国国航)")
+    print("航线: 杭州 (HGH) → 河内 (HAN)")
+    print("类型: 直飞 | 时长: 约3小时25分钟")
+    print("-" * 70)
+    
     for result in all_results:
         if result["status"] == "success":
-            stats = result["stats"]
-            if stats["min_price_cny"]:
-                print(f"{result['date']}: ¥{stats['min_price_cny']:.0f} - ¥{stats['max_price_cny']:.0f}")
-                for flight in result["direct_flights"][:3]:
-                    print(f"    {flight['flight_no']} ({flight['airline']}) - ¥{flight['price_cny']:.0f} - {flight['duration']}")
-            else:
-                print(f"{result['date']}: 未找到直飞航班")
+            flight = result["flight"]
+            print(f"{result['date']}: ¥{flight['price_cny']:.0f} (${flight['price_usd']} USD)")
+        else:
+            print(f"{result['date']}: 查询失败")
+    
     print("=" * 70)
     print(f"结果已保存到 output/flight_prices.json")
 
